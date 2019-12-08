@@ -1,44 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang=zxx>
 	<head>
 		<meta charset="UTF-8">
 		<!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
-		<!--
 		<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+		<!--
 		<meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'">
 		-->
 		<title>Batcher</title>
 		<link rel="stylesheet" href="style.css">
-		<script src="./renderer.js"></script>
 	</head>
 	<body>
 		<div>
-			<button onclick="mode='select'	">select	</button>
-			<button onclick="mode='file'	">file		</button>
-			<button onclick="mode='sh'		">sh		</button>
-			<button onclick="mode='batch'	">batch		</button>
-			<button onclick="mode='python2'	">python2	</button>
-			<button onclick="mode='python3'	">python3	</button>
-			<button onclick="mode='node'	">node		</button>
-			<button onclick="mode='std'		">std		</button>
-			<button onclick="mode='arg'		">arg		</button>
-			<button onclick="mode='auto'	">auto		</button>
+			<button id=modeSelect	>select		</button>
+			<button id=modeFile		>file		</button>
+			<button id=modeSh		>sh			</button>
+			<button id=modeBatch	>batch		</button>
+			<button id=modePython2	>python2	</button>
+			<button id=modePython3	>python3	</button>
+			<button id=modeNode		>node		</button>
+			<button id=modeStd		>std		</button>
+			<button id=modeArg		>arg		</button>
+			<button id=modeAuto		>auto		</button>
 		</div>
 		<div id=editor>
-			<canvas
-				id=canvas
-				tabindex=0
-				width="2048"
-				height="1024"
-				onmousedown="MouseDown()"
-				onmousemove="MouseMove()"
-				onmouseup="MouseUp()"
-			/>
+			<canvas tabindex=0 width="2048" height="1024"></canvas>
 		</div>
-
-		<button id="save-dialog">View Demo</button>
-		<span class="demo-response" id="file-saved"></span>
-
-		<!-- You can also require other files to run in this process -->
+		<script src="./renderer.js"></script>
 	</body>
 </html>

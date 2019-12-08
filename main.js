@@ -1,5 +1,4 @@
 const { app, BrowserWindow, Menu, MenuItem, ipcMain, dialog, shell } = require( 'electron' )
-const path = require( 'path' )
 
 function
 OpenFile() {
@@ -32,38 +31,25 @@ NewFile() {
 	}
 }
 
-let windows = []
-
 function
 createWindow( file ) {
 
 	app.addRecentDocument( file )
 
-	const w = new BrowserWindow(
+	const _ = new BrowserWindow(
 		{	width			: 1800
 		,	height			: 1200
 		,	webPreferences	: {
-				preload			: path.join( __dirname, 'preload.js' )
-			,	nodeIntegration	: true
+				preload			: __dirname + '/preload.js'
 			}
 		}
 	)
 
-	windows.push( w )
-
-	w.on(
-		'closed'
-	,	() => windows.filter( _ => _ != w )
-	)
-
-//	'ready-to-show'
-//	'did-finish-load'
-
 //	https://github.com/electron/electron/issues/11222
 
-	w.loadURL( 'file://' + __dirname + '/index.html' + '?file=' + file )
+	_.loadURL( 'file://' + __dirname + '/index.html' + '?file=' + file )
 
-	w.webContents.openDevTools()
+	_.webContents.openDevTools()
 }
 
 function
@@ -124,9 +110,25 @@ app.on(
 
 app.on(
 	'activate'
-,	( event, hasVisibleWindows ) => !hasVisileWindows && NewFile
+,	( event, hasVisibleWindows ) => !hasVisibleWindows && OpenFile()
 )
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
 ipcMain.on(
 	'save-dialog'
 ,	event => {
@@ -143,7 +145,6 @@ ipcMain.on(
 	}
 )
 
-/*
 let template = [
 	{	label	: 'File'
 	,	submenu	: [
@@ -192,8 +193,6 @@ let template = [
 			,	accelerator	: 'CmdOrCtrl+R'
 			,	click		: ( item, focusedWindow ) => {
 					if ( focusedWindow ) {
-						// on reload, start fresh and close any old
-						// open secondary windows
 						if ( focusedWindow.id === 1 ) {
 							BrowserWindow.getAllWindows().forEach(
 								win => { if ( win.id > 1 ) win.close() }

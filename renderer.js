@@ -1,6 +1,3 @@
-const { remote } = require( 'electron' )
-const fs = require( 'fs' )
-
 const
 Save = () => {
 	if ( ! file ) {
@@ -451,8 +448,8 @@ MouseUp = () => {
 	case 'std'		:
 	case 'arg'		:
 	case 'auto'		:
-		const wB = HitInner( this.b ); if ( ! wB ) return
-		const wC = HitInner( this.c ); if ( ! wC ) return
+		const wB = HitInner( b ); if ( ! wB ) return
+		const wC = HitInner( c ); if ( ! wC ) return
 		/*
 		if ( relations.reduce( ( a, _ ) => a ? a : _[ 1 ] == wC && _[ 2 ] == 'std', false ) ) {
 			alert( "Has Stdin" )
@@ -498,13 +495,15 @@ MouseUp = () => {
 	Draw()
 }
 
-const file = new URLSearchParams( window.location.search ).get( 'file' )
+let file = new URLSearchParams( window.location.search ).get( 'file' )
 fs.readFile(
 	file
 ,	'utf-8'
 ,	( er, _ ) => {
-		if ( er ) alert( er )
-		else {
+		if ( er ) {
+			alert( er )
+			file = null
+		} else {
 			const w = JSON.parse( _ )
 			elements = w.elements
 			relations = w.relations
@@ -516,7 +515,8 @@ fs.readFile(
 window.addEventListener(
 	'DOMContentLoaded'
 ,	() => {
-		Q( 'canvas' ).addEventListener(
+		const canvas = Q( 'canvas' )
+		canvas.addEventListener(
 			'contextmenu'
 		,	ev => {
 				const cm = new remote.Menu()
@@ -537,5 +537,20 @@ window.addEventListener(
 				cm.popup()
 			}
 		)
+		canvas.addEventListener( 'mousedown', MouseDown	)
+		canvas.addEventListener( 'mousemove', MouseMove	)
+		canvas.addEventListener( 'mouseup'	, MouseUp	)
+
+		Q( '#modeSelect'	).addEventListener( 'click', () => mode = 'select'	)
+		Q( '#modeFile'		).addEventListener( 'click', () => mode = 'file'	)
+		Q( '#modeSh'		).addEventListener( 'click', () => mode = 'sh'		)
+		Q( '#modeBatch'		).addEventListener( 'click', () => mode = 'batch'	)
+		Q( '#modePython2'	).addEventListener( 'click', () => mode = 'python2'	)
+		Q( '#modePython3'	).addEventListener( 'click', () => mode = 'python3'	)
+		Q( '#modeNode'		).addEventListener( 'click', () => mode = 'node'	)
+		Q( '#modeStd'		).addEventListener( 'click', () => mode = 'std'		)
+		Q( '#modeArg'		).addEventListener( 'click', () => mode = 'arg'		)
+		Q( '#modeAuto'		).addEventListener( 'click', () => mode = 'auto'	)
 	}
 )
+
