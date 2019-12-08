@@ -1,0 +1,13 @@
+#toolbar {
+	position	: relative
+}
+.crossHair {
+	cursor		: crosshair
+}
+#editor {
+	overflow	: scroll
+}
+canvas {
+	margin		: 5px 5px 5px 5px
+;	background: aliceblue
+}
