@@ -11,3 +11,9 @@ canvas {
 	margin		: 5px 5px 5px 5px
 ;	background: aliceblue
 }
+#log {
+	width		: 100%
+}
+#error {
+	width		: 100%
+}

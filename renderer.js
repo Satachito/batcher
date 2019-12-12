@@ -1,5 +1,27 @@
+let	needDraw = false
+let	needSave = false
+setInterval(
+	() => {
+		if ( needDraw ) {
+			_Draw()
+			needDraw = false
+		}
+		if ( needSave ) {
+			_Save()
+			needSave = false
+		}
+	}
+,	1000 / 60
+)
+
 const
 Save = () => {
+	needSave = true
+}
+
+const
+_Save = () => {
+console.log( 'Save' )
 	if ( ! file ) {
 		file = remote.dialog.showSaveDialogSync(
 			{	message		: '".batch" extension required.'
@@ -17,7 +39,8 @@ Save = () => {
 	} catch ( _ ) {
 		switch (
 			remote.dialog.showMessageBoxSync(
-				{	message	: 'The specified file is write protected or some other error.'
+				{	type	: 'error'
+				,	message	: 'The specified file is write protected or some other error.'
 				,	buttons	: [ 'Continue editing', 'Ignore error and close' ]
 				}
 			)
@@ -30,7 +53,8 @@ Save = () => {
 	}
 }
 
-window.onbeforeunload = Save
+window.onbeforeunload = () => _Save()
+
 /*	OLD STYLE
 window.onbeforeunload = () => {
 	switch ( 
@@ -90,38 +114,63 @@ const
 AddElement		= _ => {
 	elements[ Date.now().toString() ] = _
 	Draw()
+	Save()
+}
+
+const
+MoveElement		= ( key, rect ) => {
+	elements[ key ][ 1 ] = rect
+	Draw()
+	Save()
+}
+
+const
+ChangeText		= ( key, text ) => {
+	if ( elements[ key ][ 2 ] == text ) return
+	elements[ key ][ 2 ] = text
+	Draw()
+	Save()
+}
+
+const
+RemoveElement	= _ => {
+	delete elements[ _ ]
+	Draw()
+	Save()
 }
 
 const
 AddRelation		= _ => {
 	relations.push( _ )
 	Draw()
+	Save()
 }
 
 const
-MoveElement		= _ => {
-	elements[ _[ 0 ] ][ 1 ] = _[ 1 ]
+RemoveRelation	= _ => {
+	relations.splice( _, 1 )
 	Draw()
-}
-
-const
-ChangeText		= _ => {
-	elements[ _[ 0 ] ][ 2 ] = _[ 1 ]
-	Draw()
-}
-
-const
-RemoveElement	= _ => {
-	elements.remove( p )
-	Draw()
+	Save()
 }
 
 //	Dialog
 
 let
-HTMLDialog
+ModalDialog
 
-//	
+const
+ShowModalDialog = _ => {
+	ModalDialog = _
+	document.body.appendChild( ModalDialog )
+	ModalDialog.showModal()
+}
+
+const
+CloseModalDialog = () => {
+	ModalDialog.close()
+	ModalDialog.parentNode.removeChild( ModalDialog )
+	ModalDialog = null
+}
 
 //	App GUI
 
@@ -134,6 +183,9 @@ b = null
 let
 c = null
 
+let
+running = new Set()
+
 //	App Utilities
 
 const
@@ -143,7 +195,7 @@ const
 Label = _ => _[ 2 ].split( '\n' )[ 0 ]
 
 const
-Extent = () => Object.values( this.elements ).map( e => e[ 1 ] ).reduce(
+Extent = () => Object.values( elements ).map( e => e[ 1 ] ).reduce(
 	( a, c ) => {
 		if ( c[ 0 ] + c[ 2 ] > a[ 0 ] ) a[ 0 ] = c[ 0 ] + c[ 2 ]
 		if ( c[ 1 ] + c[ 3 ] > a[ 1 ] ) a[ 1 ] = c[ 1 ] + c[ 3 ]
@@ -152,8 +204,8 @@ Extent = () => Object.values( this.elements ).map( e => e[ 1 ] ).reduce(
 ,	[ 0, 0 ]
 ).map( _ => _ + 100 ).map( _ => Math.max( _, 1000 ) )
 
-function
-FileShape( ctx, x, y, w, h ) {
+const
+FileShape = ( ctx, x, y, w, h ) => {
 	const midX = x + w / 2
 	const midY = y + h / 2
 	const maxX = x + w
@@ -167,8 +219,8 @@ FileShape( ctx, x, y, w, h ) {
 	ctx.closePath()
 }
 
-function
-DrawComment( ctx, e ) {
+const
+DrawComment = ( ctx, e ) => {
 	ctx.fillStyle = 'white'
 	ctx.fillRect( ...e[ 1 ] )
 	ctx.strokeRect( ...e[ 1 ] )
@@ -179,9 +231,9 @@ DrawComment( ctx, e ) {
 	ctx.fillText( e[ 2 ], ...Mid( e ), e[ 1 ][ 2 ] )
 }
 
-function
-DrawProc( ctx, key, e ) {
-	ctx.fillStyle = 'white'
+const
+DrawProc = ( ctx, key, e ) => {
+	ctx.fillStyle = running.has( key ) ? 'red' : 'white'
 	ctx.fillRect( ...e[ 1 ] )
 	ctx.strokeRect( ...e[ 1 ] )
 	ctx.fillStyle = 'black'
@@ -195,8 +247,8 @@ DrawProc( ctx, key, e ) {
 	ctx.fillText( Label( e ), ...Mid( e ), e[ 1 ][ 2 ] )
 }
 
-function
-DrawFile( ctx, e ) {
+const
+DrawFile = ( ctx, e ) => {
 	FileShape( ctx, ...e[ 1 ] )
 	ctx.fillStyle = 'white'
 	ctx.fill()
@@ -220,9 +272,11 @@ DrawFile( ctx, e ) {
 	}
 }
 
-function
-Draw() {
+const
+Draw = () => needDraw = true
 
+const
+_Draw = () => {
 	const canvas = Q( 'canvas' )
 	const ctx = canvas.getContext( '2d' )
 	ctx.clearRect( 0, 0, canvas.width, canvas.height )
@@ -346,12 +400,12 @@ Draw() {
 	}
 	ctx.strokeStyle = 'black'
 }
-function
-Move( r ) {
+const
+Move = r => {
 	return [ r[ 0 ] + c.offsetX - b.offsetX, r[ 1 ] + c.offsetY - b.offsetY, r[ 2 ], r[ 3 ] ]
 }
-function
-Morph( r, where ) {
+const
+Morph = ( r, where ) => {
 	let	minX = r[ 0 ]
 	let	maxX = r[ 0 ] + r[ 2 ]
 	let	minY = r[ 1 ]
@@ -368,8 +422,8 @@ Morph( r, where ) {
 	if ( minY > maxY ) [ minY, maxY ] = [ maxY, minY ]
 	return [ minX, minY, maxX - minX, maxY - minY ]
 }
-function
-HitLine( _ ) {
+const
+HitLine = _ => {
 	for ( let index in relations ) {
 		const e = relations[ index ]
 		const l = Mid( elements[ e[ 0 ] ] )
@@ -380,8 +434,8 @@ HitLine( _ ) {
 	}
 	return null
 }
-function
-Hit( _ ) {
+const
+Hit = _ => {
 	const x = _.offsetX
 	const y = _.offsetY
 	for ( let key in elements ) {
@@ -407,8 +461,8 @@ Hit( _ ) {
 	}
 	return [ null, null ]
 }
-function
-HitInner( _ ) {
+const
+HitInner = _ => {
 	const [ key, w ] = Hit( _ )
 	return key && w == 'CC' ? key : null
 }
@@ -417,6 +471,7 @@ HitInner( _ ) {
 
 const
 MouseDown = () => {
+	if ( event.button ) return
 	b = event
 	Draw()
 }
@@ -427,8 +482,11 @@ MouseMove = () => {
 	Draw()
 }
 
+undos = []
+
 const
 MouseUp = () => {
+	if ( event.button ) return
 	switch ( mode ) {
 	case 'select'	:
 		if ( b ) {
@@ -436,10 +494,17 @@ MouseUp = () => {
 			if ( key ) {
 				switch ( where ) {
 				case 'CC':
-					MoveElement( [ key, Move( elements[ key ][ 1 ] ) ] )
+					const wRect = elements[ key ][ i ]
+					undos.insert( 
+						0
+					,	{	do: 	() => MoveElement( key, Move( wRect ) )
+						,	undo: 	() => MoveElement( key, wRect )
+						}
+					)
+					undos[ 0 ].do()
 					break
 				default:
-					MoveElement( [ key, Morph( elements[ key ][ 1 ], where ) ] )
+					MoveElement( key, Morph( elements[ key ][ 1 ], where ) )
 					break
 				}
 			}
@@ -450,12 +515,6 @@ MouseUp = () => {
 	case 'auto'		:
 		const wB = HitInner( b ); if ( ! wB ) return
 		const wC = HitInner( c ); if ( ! wC ) return
-		/*
-		if ( relations.reduce( ( a, _ ) => a ? a : _[ 1 ] == wC && _[ 2 ] == 'std', false ) ) {
-			alert( "Has Stdin" )
-			return
-		}
-		*/
 		AddRelation( [ wB, wC, mode ] )
 		break
 	case 'file'		:
@@ -466,27 +525,21 @@ MouseUp = () => {
 	case 'node'		:
 		const rect = [ event.offsetX - 80, event.offsetY - 30, 160, 60 ]
 		const ta = E( 'textarea', { cols: '128', rows: '20' } )
-		const
-		Close = () => {
-			HTMLDialog.close()
-			HTMLDialog.parentNode.removeChild( HTMLDialog )
-		}
-		const
-		Create = () => {
-			Close()
-			AddElement( [ mode, rect, ta.value ] )
-		}
-		HTMLDialog = E(
-			'dialog'
-		,	{ center: true }
-		,	[	ta
-			,	E( 'br' )
-			,	B( 'OK', _ => Create() )
-			,	B( 'Cancel', _ => Close() )
-			]
+		ShowModalDialog(
+			E(	'dialog'
+			,	{ center: true }
+			,	[	ta
+				,	E( 'br' )
+				,	B(	'OK'
+					,	() => {
+							CloseModalDialog()
+							AddElement( [ mode, rect, ta.value ] )
+						}
+					)
+				,	B( 'Cancel', CloseModalDialog )
+				]
+			)
 		)
-		document.body.appendChild( HTMLDialog )
-		HTMLDialog.showModal()
 		break
 	}
 
@@ -495,22 +548,250 @@ MouseUp = () => {
 	Draw()
 }
 
-let file = new URLSearchParams( window.location.search ).get( 'file' )
-fs.readFile(
-	file
-,	'utf-8'
-,	( er, _ ) => {
-		if ( er ) {
-			alert( er )
-			file = null
-		} else {
-			const w = JSON.parse( _ )
-			elements = w.elements
-			relations = w.relations
-			Draw()
+const
+KeyUpESC = () => {
+	mode = 'select'
+	b = null
+	Draw()
+}
+
+const
+EditText = ev => {
+	const key = HitInner( ev )
+	if ( !key ) return
+	const ta = E( 'textarea', { cols: '128', rows: '20' } )
+	ta.value = elements[ key ][ 2 ]
+	ShowModalDialog(
+		E(	'dialog'
+		,	{ center: true }
+		,	[	ta
+			,	E( 'br' )
+			,	B(	'OK'
+				,	() => {
+						CloseModalDialog()
+						ChangeText( key, ta.value )
+					}
+				)
+			,	B( 'Cancel', CloseModalDialog )
+			]
+		)
+	)
+}
+
+const
+CheckFiles = () => {
+	Object.keys( elements ).filter( _ => elements[ _ ][ 0 ] == 'file' ).forEach(
+		key => {
+			const fileName = Label( elements[ key ] )
+			fs.stat(
+				fileName
+			,	( er, stat ) => {
+					let newText = fileName
+					if ( er ) newText += '\n' + er.code
+					if ( stat ) newText += '\n' + stat.size + ' ' + stat.mtime
+					ChangeText( key, newText )
+				}
+			)
 		}
+	)
+}
+
+const
+MakeProcChain = fileKey => {
+	const Upper = key => relations.filter( _ => _[ 1 ] == key ).map( _ => _[ 0 ] )
+	const inProcs = Upper( fileKey )
+	const inFiles = inProcs.map( _ => Upper( _ ) ).reduce( ( a, c ) => a.concat( c ), [] )
+	return inFiles.map( _ => MakeProcChain( _ ) ).reduce( ( a, c ) => a.concat( c ), [] ).concat( inProcs )
+}
+
+const
+Console = ( q, _ ) => {
+	const e = Q( q )
+	e.value += _
+	e.scrollTop = e.scrollHeight
+}
+
+const
+LogConsole = _ => Console( '#log', _ )
+
+const
+ErrorConsole = _ => Console( '#error', _ )
+
+const
+Warning = _ => {
+	console.error( _ )
+	remote.dialog.showMessageBoxSync(
+		{	type	: 'warning'
+		,	message	: _
+		}
+	)
+}
+
+const
+Run = keys => {
+	try {
+		_Run( keys )
+	} catch ( _ ) {
+		Warning( _ )
 	}
-)
+}
+
+const
+Stats = _ => Promise.all( _.map( _ => promisify( fs.stat )( _ ) ) )
+
+const
+_Run = keys => {
+	if ( !keys.length ) {
+		console.log( 'DONE' )
+		CheckFiles()
+		return
+	}
+	const key = keys[ 0 ]
+	const e = elements[ key ]
+	switch ( e[ 0 ] ) {
+	case 'file'	:
+		_Run( MakeProcChain( key ) )
+		break
+	case 'sh'	:
+		console.log( key + ' : prep : ' + e[ 0 ] + ' : ' + Label( e ) )
+		{	const
+			inputFiles = relations.filter( _ => _[ 1 ] == key ).map( _ => Label( elements[ _[ 0 ] ] ) )
+
+			Stats( inputFiles ).then(
+				_ => {
+					const
+					stdin = relations.filter( _ => _[ 1 ] == key && _[ 2 ] == 'std' ).map( _ => Label( elements[ _[ 0 ] ] ) )
+					if ( stdin.length > 1 ) throw( 'multiple stdin' )
+
+					const
+					stdout = relations.filter( _ => _[ 0 ] == key && _[ 2 ] == 'std' ).map( _ => Label( elements[ _[ 1 ] ] ) )
+					if ( stdout.length > 1 ) throw( 'multiple stdout' )
+
+					const
+					args = relations.filter( _ => _[ 2 ] == 'arg' ).map(
+						_ => _[ 0 ] == key
+						?	Label( elements[ _[ 1 ] ] )
+						:	_[ 1 ] == key
+							?	Label( elements[ _[ 0 ] ] )
+							:	null
+					).filter( _ => _ )
+
+					console.log( key + ' : run  : ' + e[ 0 ] + ' : ' + Label( e ) )
+					let exec = stdin.length ? ( 'cat ' + stdin[ 0 ] + ' | ' ) : ''
+					exec += Label( e )
+					args.forEach( _ => exec += ' ' + _ )
+					if ( stdout.length ) exec += ' > ' + stdout[ 0 ]
+					child_process.exec(
+						exec
+					,	( er, stdout, stderr ) => {
+							running.delete( key )
+							Draw()
+							console.log( key + ' : fin  : ' + e[ 0 ] + ' : ' + Label( e ) + ' : ' + JSON.stringify( { er, stdout, stderr } ) )
+							if ( stdout )	LogConsole( stdout.toString() )
+							if ( stderr )	ErrorConsole( stderr.toString() )
+							if ( er )		throw er.toString()
+							else			_Run( keys.filter( ( _, i ) => i != 0 ) )
+						}
+					)
+					running.add( key )
+					Draw()
+				}
+			).catch(
+				_ => { throw 'Some troubles in input file' }
+			)
+		}
+		break
+	case 'batch'	:
+	case 'python2'	:
+	case 'python3'	:
+	case 'node'		:
+		{	const
+			execName = e[ 0 ] == 'batch' ? 'sh' : e[ 0 ]
+
+			console.log( key + ' : prep : ' + execName + ' : ' + Label( e ) )
+
+			const
+			inputFiles = relations.filter( _ => _[ 1 ] == key ).map( _ => Label( elements[ _[ 0 ] ] ) )
+
+			Stats( inputFiles ).then(
+				_ => {
+					const
+					stdin = relations.filter( _ => _[ 1 ] == key && _[ 2 ] == 'std' ).map( _ => Label( elements[ _[ 0 ] ] ) )
+					if ( stdin.length > 1 ) throw( 'multiple stdin' )
+
+					const
+					stdout = relations.filter( _ => _[ 0 ] == key && _[ 2 ] == 'std' ).map( _ => Label( elements[ _[ 1 ] ] ) )
+					if ( stdout.length > 1 ) throw( 'multiple stdout' )
+
+					const
+					args = relations.filter( _ => _[ 2 ] == 'arg' ).map(
+						_ => _[ 0 ] == key
+						?	Label( elements[ _[ 1 ] ] )
+						:	_[ 1 ] == key
+							?	Label( elements[ _[ 0 ] ] )
+							:	null
+					).filter( _ => _ )
+
+					console.log( key + ' : save : ' + execName + ' : ' + Label( e ) )
+					try {
+						const
+						tmpFileName = '.' + key
+
+						fs.writeFileSync(
+							tmpFileName
+						,	e[ 2 ]
+						)
+						console.log( key + ' : run  : ' + execName + ' : ' + Label( e ) )
+
+						const spawned = child_process.spawn(
+							execName
+						,	[ tmpFileName, ...args ]
+						)
+						running.add( key )
+						Draw()
+						if ( stdin.length ) fs.createReadStream( stdout[ 0 ] ).pipe( proc.stdin )
+						if ( stdout.length ) {
+							spawned.stdout.pipe( fs.createWriteStream( stdout[ 0 ] ) )
+						} else {
+							spawned.stdout.on(
+								'data'
+							,	_ => LogConsole( _.toString() )
+							)
+						}
+						spawned.stderr.on(
+							'data'
+						,	_ => ErrorConsole( _.toString() )
+						)
+						spawned.on(
+							'close'
+						,	( code, signal ) => console.log( 'close', code, signal )
+						)
+						spawned.on(
+							'exit'
+						,	( code, signal ) => {
+								console.log( 'exit', code, signal )
+								running.delete( key )
+								Draw()
+								_Run( keys.filter( ( _, i ) => i != 0 ) )
+							}
+						)
+						spawned.on(
+							'error'
+						,	_ => { throw _.toString() }
+						)
+					} catch ( _ ) {
+						console.error( _ )
+					}
+				}
+			).catch(
+				_ => { throw _.toString() }
+			)
+		}
+		break
+	default		:
+		break
+	}
+}
 
 window.addEventListener(
 	'DOMContentLoaded'
@@ -519,38 +800,99 @@ window.addEventListener(
 		canvas.addEventListener(
 			'contextmenu'
 		,	ev => {
-				const cm = new remote.Menu()
-				cm.append(
-					new remote.MenuItem(
-						{	label: 'Delete'
-						,	click: () => console.log( 'Delete' )
-						}
+				const key = HitInner( ev )
+				if ( key ) {
+					const cm = new remote.Menu()
+					cm.append(
+						new remote.MenuItem(
+							{	label: 'Delete'
+							,	click: ev => RemoveElement( key )
+							}
+						)
 					)
-				)
-				cm.append(
-					new remote.MenuItem(
-						{	label: 'Run'
-						,	click: () => console.log( 'Run' )
-						}
+					cm.append(
+						new remote.MenuItem(
+							{	label: 'Run'
+							,	click: () => Run( [ key ] )
+							}
+						)
 					)
-				)
-				cm.popup()
+					if ( elements[ key ][ 0 ] == 'file' ) {
+						cm.append(
+							new remote.MenuItem(
+								{	label: 'Unlink'
+								,	click: ev => fs.unlink(
+										Label( elements[ key ] )
+									,	er => er
+										?	Warning( er.toString() )
+										:	CheckFiles()
+									)
+								}
+							)
+						)
+					}
+					cm.popup()
+				}
+				const index = HitLine( ev )
+				if ( index ) {
+					const cm = new remote.Menu()
+					cm.append(
+						new remote.MenuItem(
+							{	label: 'Delete'
+							,	click: ev => RemoveRelation( index )
+							}
+						)
+					)
+					cm.popup()
+				}
 			}
 		)
 		canvas.addEventListener( 'mousedown', MouseDown	)
 		canvas.addEventListener( 'mousemove', MouseMove	)
 		canvas.addEventListener( 'mouseup'	, MouseUp	)
+		canvas.addEventListener( 'keyup'	, KeyUpESC	)
+		canvas.addEventListener( 'dblclick'	, EditText	)
 
-		Q( '#modeSelect'	).addEventListener( 'click', () => mode = 'select'	)
-		Q( '#modeFile'		).addEventListener( 'click', () => mode = 'file'	)
-		Q( '#modeSh'		).addEventListener( 'click', () => mode = 'sh'		)
-		Q( '#modeBatch'		).addEventListener( 'click', () => mode = 'batch'	)
-		Q( '#modePython2'	).addEventListener( 'click', () => mode = 'python2'	)
-		Q( '#modePython3'	).addEventListener( 'click', () => mode = 'python3'	)
-		Q( '#modeNode'		).addEventListener( 'click', () => mode = 'node'	)
-		Q( '#modeStd'		).addEventListener( 'click', () => mode = 'std'		)
-		Q( '#modeArg'		).addEventListener( 'click', () => mode = 'arg'		)
-		Q( '#modeAuto'		).addEventListener( 'click', () => mode = 'auto'	)
+		const
+		SetMode = _ => {
+			mode = _
+			canvas.focus( { preventScroll: true } )
+		}
+
+		Q( '#modeSelect'	).addEventListener( 'click', () => SetMode( 'select'	) )
+		Q( '#modeFile'		).addEventListener( 'click', () => SetMode( 'file'		) )
+		Q( '#modeSh'		).addEventListener( 'click', () => SetMode( 'sh'		) )
+		Q( '#modeBatch'		).addEventListener( 'click', () => SetMode( 'batch'		) )
+		Q( '#modePython2'	).addEventListener( 'click', () => SetMode( 'python2'	) )
+		Q( '#modePython3'	).addEventListener( 'click', () => SetMode( 'python3'	) )
+		Q( '#modeNode'		).addEventListener( 'click', () => SetMode( 'node'		) )
+		Q( '#modeStd'		).addEventListener( 'click', () => SetMode( 'std'		) )
+		Q( '#modeArg'		).addEventListener( 'click', () => SetMode( 'arg'		) )
+		Q( '#modeAuto'		).addEventListener( 'click', () => SetMode( 'auto'		) )
+
+		Q( '#checkFiles'	).addEventListener( 'click', CheckFiles )
 	}
 )
+
+let file = new URLSearchParams( window.location.search ).get( 'file' )
+try {
+	proc.chdir( path.dirname( file ) )
+	fs.readFile(
+		file
+	,	'utf-8'
+	,	( er, _ ) => {
+			if ( er ) {
+				alert( er )
+				file = null
+			} else {
+				const w = JSON.parse( _ )
+				elements = w.elements
+				relations = w.relations
+				Draw()
+			}
+		}
+	)
+} catch ( _ ) {
+	alert( _ )
+}
 
