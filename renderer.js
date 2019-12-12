@@ -969,3 +969,4 @@ Job = _ => {
 ipcRenderer.on( 'undo', Undo )
 ipcRenderer.on( 'redo', Redo )
 
+ipcRenderer.on( 'job', () => ipcRenderer.send( 'job', { undos, redos } ) )

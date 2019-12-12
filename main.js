@@ -78,7 +78,7 @@ const
 ModMenu = () => {
 	const mBar = Menu.getApplicationMenu()
 
-	const fileMenu = mBar.items[ 1 ].submenu
+	const fileMenu = mBar.items[ isMac ? 1 : 0 ].submenu
 	fileMenu.insert(
 		0
 	,	new MenuItem(
@@ -249,7 +249,22 @@ app.on(
 ,	( event, hasVisibleWindows ) => !hasVisibleWindows && OpenFile()
 )
 
+setInterval(
+	() => {
+		const _ = BrowserWindow.getFocusedWindow()
+		if ( _ ) _.send( 'job' )
+	}
+,	1000 / 60
+)
 
+ipcMain.on(
+	'job'
+,	( ev, _ ) => {
+		const wMIs = Menu.getApplicationMenu().items[ isMac ? 2 : 1 ].submenu.items
+		wMIs[ 0 ].enabled = _.undos.length > 0
+		wMIs[ 1 ].enabled = _.redos.length > 0
+	}
+)
 
 
 
