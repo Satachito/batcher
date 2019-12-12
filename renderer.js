@@ -907,6 +907,7 @@ window.addEventListener(
 )
 
 let file = new URLSearchParams( window.location.search ).get( 'file' )
+document.title = file
 try {
 	proc.chdir( path.dirname( file ) )
 	fs.readFile(
