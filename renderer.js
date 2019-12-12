@@ -306,7 +306,6 @@ Draw = () => needDraw = true
 
 const
 _Draw = () => {
-console.log( 'Draw' )
 	const canvas = Q( 'canvas' )
 	const ctx = canvas.getContext( '2d' )
 	ctx.clearRect( 0, 0, canvas.width, canvas.height )
@@ -536,6 +535,14 @@ MouseUp = () => {
 	case 'auto'		:
 		const wB = HitInner( b ); if ( ! wB ) return
 		const wC = HitInner( c ); if ( ! wC ) return
+		if ( wB == wC ) return
+		if (
+			( elements[ wB ][ 0 ] == 'file' && elements[ wC ][ 0 ] == 'file' )
+		||	( elements[ wB ][ 0 ] != 'file' && elements[ wC ][ 0 ] != 'file' )
+		) {
+			alert( 'Connection must be in between file and procedure' )
+			return
+		}
 		AddRelation( [ wB, wC, mode ] )
 		break
 	case 'file'		:
@@ -622,7 +629,9 @@ MakeProcChain = fileKey => {
 	const Upper = key => relations.filter( _ => _[ 1 ] == key ).map( _ => _[ 0 ] )
 	const inProcs = Upper( fileKey )
 	const inFiles = inProcs.map( _ => Upper( _ ) ).reduce( ( a, c ) => a.concat( c ), [] )
-	return inFiles.map( _ => MakeProcChain( _ ) ).reduce( ( a, c ) => a.concat( c ), [] ).concat( inProcs )
+	return inFiles.length
+	?	inFiles.map( _ => MakeProcChain( _ ) ).reduce( ( a, c ) => a.concat( c ), [] ).concat( inProcs )
+	:	inProcs
 }
 
 const
@@ -768,15 +777,15 @@ _Run = keys => {
 							execName
 						,	[ tmpFileName, ...args ]
 						)
-						running.add( key )
-						Draw()
-						if ( stdin.length ) fs.createReadStream( stdout[ 0 ] ).pipe( proc.stdin )
+						if ( stdin.length ) fs.createReadStream( stdin[ 0 ] ).pipe( spawned.stdin )
 						if ( stdout.length ) {
 							spawned.stdout.pipe( fs.createWriteStream( stdout[ 0 ] ) )
 						} else {
 							spawned.stdout.on(
 								'data'
-							,	_ => LogConsole( _.toString() )
+							,	_ => {
+									LogConsole( _.toString() )
+								}
 							)
 						}
 						spawned.stderr.on(
@@ -800,6 +809,8 @@ _Run = keys => {
 							'error'
 						,	_ => { throw _.toString() }
 						)
+						running.add( key )
+						Draw()
 					} catch ( _ ) {
 						console.error( _ )
 					}
@@ -922,7 +933,6 @@ redos = []
 
 const
 Undo = () => {
-console.log( undos.length )
 	if ( undos.length ) {
 		redos.unshift( undos[ 0 ] )
 		undos[ 0 ].Undo()
