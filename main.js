@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Menu, MenuItem, ipcMain, dialog, shell } = require( 'electron' )
 
-function
-OpenFile() {
+const
+OpenFile = () => {
 	const _ = dialog.showOpenDialogSync(
 		{	message	: 'Select *.batch'
 		,	filters	: [
@@ -12,8 +12,8 @@ OpenFile() {
 	if ( _ && _.length ) _.forEach( _ => createWindow( _ ) )
 }
 
-function
-NewFile() {
+const
+NewFile = () => {
 	const _ = dialog.showSaveDialogSync(
 		{	message		: '".batch" extension required.'
 		,	properties	: [ 'createDirectory' ]
@@ -21,6 +21,7 @@ NewFile() {
 	)
 	if ( _ ) {
 		if ( _.endsWith( '.batch' ) ) {
+			require( 'fs' ).writeFileSync( _, JSON.stringify( { relations: [], elements: {} } ) )
 			createWindow( _ )
 		} else {
 			dialog.showErrorBox(
@@ -31,8 +32,8 @@ NewFile() {
 	}
 }
 
-function
-createWindow( file ) {
+const
+createWindow = file => {
 
 	app.addRecentDocument( file )
 
@@ -52,12 +53,32 @@ createWindow( file ) {
 	_.webContents.openDevTools()
 }
 
-function
-InsertMenus() {
-	const mBar = Menu.getApplicationMenu()
-	if ( ! mBar ) return
-	const fileMenu = mBar.items[ 1 ].submenu
+/*	DAME PPOI
+const
+ModMenu = () => {
+	const
+	CopyMenuItem = _ => {
+		const v = new MenuItem( {} )
+		for ( k in _ ) v[ k ] = _[ k ]
+		if ( _.submenu ) v.submenu = CopyMenu( _.submenu )
+		v.click = ( menuItem, browserWindow, event ) => _.click( menuItem, browserWindow, event )
+		return v
+	}
+	const
+	CopyMenu = _ => {
+		const v = new Menu()
+		_.items.forEach( _ => v.append( CopyMenuItem( _ ) ) )
+		return v
+	}
 
+	Menu.setApplicationMenu( CopyMenu( Menu.getApplicationMenu() ) )
+}
+
+const
+ModMenu = () => {
+	const mBar = Menu.getApplicationMenu()
+
+	const fileMenu = mBar.items[ 1 ].submenu
 	fileMenu.insert(
 		0
 	,	new MenuItem(
@@ -83,8 +104,122 @@ InsertMenus() {
 			}
 		)
 	)
+
 	Menu.setApplicationMenu( mBar )
 }
+*/
+
+//	https://electronjs.org/docs/api/menu
+const
+isMac = process.platform === 'darwin'
+
+const
+template = [
+	...(
+		isMac
+		?	[	{	role	: 'appMenu'
+				,	submenu	: [
+						{ role: 'about' }
+					,	{ type: 'separator' }
+					,	{ role: 'services' }
+					,	{ type: 'separator' }
+					,	{ role: 'hide' }
+					,	{ role: 'hideothers' }
+					,	{ role: 'unhide' }
+					,	{ type: 'separator' }
+					,	{ role: 'quit' }
+					]
+				}
+			]
+		:	[]
+	)
+,	{	role	: 'fileMenu'
+	,	submenu	: [
+			{	label		: 'New'
+			,	accelerator	: 'CmdOrCtrl+N'
+			,	click		: NewFile
+			}
+		,	{	label		: 'Open...'
+			,	accelerator	: 'CmdOrCtrl+O'
+			,	click		: OpenFile
+			}
+		,	{ type: 'separator' }
+		,	isMac ? { role: 'close' } : { role: 'quit' }
+		]
+	}
+,	{	role	: 'editMenu'
+	,	submenu	: [
+			{	label		: 'Undo'
+			,	accelerator	: 'CmdOrCtrl+Z'
+			,	click		: () => BrowserWindow.getFocusedWindow().send( 'undo' )
+			}
+		,	{	label		: 'Redo'
+			,	accelerator	: 'Shift+CmdOrCtrl+Z'
+			,	click		: () => BrowserWindow.getFocusedWindow().send( 'redo' )
+			}
+		,	{ type: 'separator' }
+		,	{ role: 'cut' }
+		,	{ role: 'copy' }
+		,	{ role: 'paste' }
+		,	...(
+				isMac
+			?	[	{ role: 'pasteAndMatchStyle' }
+				,	{ role: 'delete' }
+				,	{ role: 'selectAll' }
+				,	{ type: 'separator' }
+				,	{	label	: 'Speech'
+					,	submenu	: [
+							{ role: 'startspeaking' }
+						,	{ role: 'stopspeaking' }
+						]
+					}
+				]
+			:	[	{ role: 'delete' }
+				,	{ type: 'separator' }
+				,	{ role: 'selectAll' }
+				]
+			)
+		]
+	}
+,	{	role	: 'viewMenu'
+	,	submenu	: [
+			{ role: 'reload' }
+		,	{ role: 'forcereload' }
+		,	{ role: 'toggledevtools' }
+		,	{ type: 'separator' }
+		,	{ role: 'resetzoom' }
+		,	{ role: 'zoomin' }
+		,	{ role: 'zoomout' }
+		,	{ type: 'separator' }
+		,	{ role: 'togglefullscreen' }
+		]
+	}
+,	{	role	: 'windowMenu'
+	,	submenu	: [
+			{ role: 'minimize' }
+		,	{ role: 'zoom' }
+		,	...(
+				isMac
+			?	[	{ type: 'separator' }
+				,	{ role: 'front' }
+				,	{ type: 'separator' }
+				,	{ role: 'window' }
+				]
+			:	[ { role: 'close' } ]
+			)
+		]
+	}
+,	{	role	: 'help'
+	,	submenu	: [
+			{	label: 'Learn More'
+			,	click: async () => {
+					const { shell } = require( 'electron' )
+					await shell.openExternal( 'https://electronjs.org' )
+				}
+			}
+		]
+	}
+]
 
 //	MUST BE BEFORE 'ready'
 app.on(
@@ -99,7 +234,8 @@ app.on(
 	'ready'
 ,	() => {
 		OpenFile()
-		setTimeout( InsertMenus, 0 )
+		Menu.setApplicationMenu( Menu.buildFromTemplate( template ) )
+//		setTimeout( ModMenu, 0 )
 	}
 )
 
@@ -145,118 +281,6 @@ ipcMain.on(
 	}
 )
 
-let template = [
-	{	label	: 'File'
-	,	submenu	: [
-			{	label		: 'New'
-			,	accelerator	: 'CmdOrCtrl+N'
-			,	click		: NewFile
-			}
-		,	{	label		: 'Open...'
-			,	accelerator	: 'CmdOrCtrl+O'
-			,	click		: OpenFile
-			}
-		]
-	}
-,	{	label	: 'Edit'
-	,	submenu	: [
-			{	label		: 'Undo'
-			,	accelerator	: 'CmdOrCtrl+Z'
-			,	role		: 'undo'
-			}
-		,	{	label		: 'Redo'
-			,	accelerator	: 'Shift+CmdOrCtrl+Z'
-			,	role		: 'redo'
-			}
-		,	{ type: 'separator' }
-		,	{	label		: 'Cut'
-			,	accelerator	: 'CmdOrCtrl+X'
-			,	role		: 'cut'
-			}
-		,	{	label		: 'Copy'
-			,	accelerator	: 'CmdOrCtrl+C'
-			,	role		: 'copy'
-			}
-		,	{	label		: 'Paste'
-			,	accelerator	: 'CmdOrCtrl+V'
-			,	role		: 'paste'
-			}
-		,	{	label		: 'Select All'
-			,	accelerator	: 'CmdOrCtrl+A'
-			,	role		: 'selectall'
-			}
-		]
-	}
-,	{	label	: 'View'
-	,	submenu	: [
-			{	label		: 'Reload'
-			,	accelerator	: 'CmdOrCtrl+R'
-			,	click		: ( item, focusedWindow ) => {
-					if ( focusedWindow ) {
-						if ( focusedWindow.id === 1 ) {
-							BrowserWindow.getAllWindows().forEach(
-								win => { if ( win.id > 1 ) win.close() }
-							)
-						}
-						focusedWindow.reload()
-					}
-				}
-			}
-		,	{	label		: 'Toggle Full Screen'
-			,	accelerator	: process.platform == 'darwin' ? 'Ctrl+Command+F' : 'F11'
-			,	click		: ( item, focusedWindow ) => focusedWindow && focusedWindow.setFullScreen( !focusedWindow.isFullScreen() )
-			}
-		,	{	label		: 'Toggle Developer Tools'
-			,	accelerator	: process.platform == 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I'
-			,	click		: ( item, focusedWindow ) => focusedWindow && focusedWindow.toggleDevTools()
-			}
-		,	{ type: 'separator' }
-		,	{	label		: 'App Menu Demo'
-			,	click		: ( item, focusedWindow ) => {
-					if ( focusedWindow ) {
-						dialog.showMessageBox(
-							focusedWindow
-						,	{	type: 'info'
-							,	title: 'Application Menu Demo'
-							,	buttons: ['Ok']
-							,	message: 'This demo is for the Menu section, showing how to create a clickable menu item in the application menu.'
-							}
-						)
-					}
-				}
-			}
-		]
-	}
-,	{	label	: 'Window'
-	,	role	: 'window'
-	,	submenu	: [
-			{	label		: 'Minimize'
-			,	accelerator	: 'CmdOrCtrl+M'
-			,	role		: 'minimize'
-			}
-		,	{	label		: 'Close'
-			,	accelerator	: 'CmdOrCtrl+W'
-			,	role		: 'close'
-			}
-		,	{ type: 'separator' }
-		,	{	label		: 'Reopen Window'
-			,	accelerator	: 'CmdOrCtrl+Shift+T'
-			,	enabled		: false
-			,	key			: 'reopenMenuItem'
-			,	click		: () => app.emit( 'activate' )
-			}
-		]
-	}
-,	{	label	: 'Help'
-	,	role	: 'help'
-	,	submenu	: [
-			{	label		: 'Learn More'
-			,	click		: () => { shell.openExternal( 'http://electron.atom.io' ) }
-			}
-		]
-	}
-]
-
 function
 addUpdateMenuItems ( items, position ) {
 	if ( process.mas ) return
@@ -291,7 +315,7 @@ ReopenMenuItems () {
 	const mBar = Menu.getApplicationMenu()
 	if ( !mBar ) []
 
-	const v =  mBar.items.filter(
+	const v =	mBar.items.filter(
 		_ => _.submenu
 		?	_.submenu.items.filter( _ => _ == 'reopenMenuItem' )
 		:	[]

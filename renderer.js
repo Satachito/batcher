@@ -21,7 +21,6 @@ Save = () => {
 
 const
 _Save = () => {
-console.log( 'Save' )
 	if ( ! file ) {
 		file = remote.dialog.showSaveDialogSync(
 			{	message		: '".batch" extension required.'
@@ -119,38 +118,68 @@ AddElement		= _ => {
 
 const
 MoveElement		= ( key, rect ) => {
-	elements[ key ][ 1 ] = rect
-	Draw()
-	Save()
+	const wSaved = elements[ key ][ 1 ]
+	Job(
+		{	Do: 	() => elements[ key ][ 1 ] = rect
+		,	Undo: 	() => elements[ key ][ 1 ] = wSaved
+		}
+	)
 }
 
 const
 ChangeText		= ( key, text ) => {
+	if ( elements[ key ][ 2 ] == text ) return
+	const wSaved = elements[ key ][ 2 ]
+	Job(
+		{	Do: 	() => elements[ key ][ 2 ] = text
+		,	Undo: 	() => elements[ key ][ 2 ] = wSaved
+		}
+	)
+}
+const
+ChangeText_Direct	= ( key, text ) => {
 	if ( elements[ key ][ 2 ] == text ) return
 	elements[ key ][ 2 ] = text
 	Draw()
 	Save()
 }
 
+
 const
 RemoveElement	= _ => {
-	delete elements[ _ ]
-	Draw()
-	Save()
+	const wSaved = elements[ _ ]
+	const wSavedRelations = []
+	for ( let i in relations ) if ( relations[ i ][ 0 ] == _ || relations[ i ][ 1 ] == _ ) wSavedRelations.push( [ i, relations[ i ] ] )
+	Job(
+		{	Do: 	() => {
+				delete elements[ _ ]
+				wSavedRelations.map( _ => _[ 0 ] ).reverse().forEach( _ => relations.splice( _, 1 ) )
+			}
+		,	Undo: 	() => {
+				elements[ _ ] = wSaved
+				wSavedRelations.forEach( _ => relations.splice( _[ 0 ], 0, _[ 1 ] ) )
+			}
+		}
+	)
 }
 
 const
 AddRelation		= _ => {
-	relations.push( _ )
-	Draw()
-	Save()
+	Job(
+		{	Do: 	() => relations.push( _ )
+		,	Undo: 	() => relations.pop()
+		}
+	)
 }
 
 const
 RemoveRelation	= _ => {
-	relations.splice( _, 1 )
-	Draw()
-	Save()
+	const wSaved = relations[ _ ]
+	Job(
+		{	Do: 	() => relations.splice( _, 1 )
+		,	Undo: 	() => relations.splice( _, 0, wSaved )
+		}
+	)
 }
 
 //	Dialog
@@ -277,6 +306,7 @@ Draw = () => needDraw = true
 
 const
 _Draw = () => {
+console.log( 'Draw' )
 	const canvas = Q( 'canvas' )
 	const ctx = canvas.getContext( '2d' )
 	ctx.clearRect( 0, 0, canvas.width, canvas.height )
@@ -482,8 +512,6 @@ MouseMove = () => {
 	Draw()
 }
 
-undos = []
-
 const
 MouseUp = () => {
 	if ( event.button ) return
@@ -494,14 +522,7 @@ MouseUp = () => {
 			if ( key ) {
 				switch ( where ) {
 				case 'CC':
-					const wRect = elements[ key ][ i ]
-					undos.insert( 
-						0
-					,	{	do: 	() => MoveElement( key, Move( wRect ) )
-						,	undo: 	() => MoveElement( key, wRect )
-						}
-					)
-					undos[ 0 ].do()
+					MoveElement( key, Move( elements[ key ][ 1 ] ) )
 					break
 				default:
 					MoveElement( key, Morph( elements[ key ][ 1 ], where ) )
@@ -589,7 +610,7 @@ CheckFiles = () => {
 					let newText = fileName
 					if ( er ) newText += '\n' + er.code
 					if ( stat ) newText += '\n' + stat.size + ' ' + stat.mtime
-					ChangeText( key, newText )
+					ChangeText_Direct( key, newText )
 				}
 			)
 		}
@@ -895,4 +916,43 @@ try {
 } catch ( _ ) {
 	alert( _ )
 }
+
+undos = []
+redos = []
+
+const
+Undo = () => {
+console.log( undos.length )
+	if ( undos.length ) {
+		redos.unshift( undos[ 0 ] )
+		undos[ 0 ].Undo()
+		undos.splice( 0, 1 )
+		Draw()
+		Save()
+	}
+}
+
+const
+Redo = () => {
+	if ( redos.length ) {
+		undos.unshift( redos[ 0 ] )
+		redos[ 0 ].Do()
+		redos.splice( 0, 1 )
+		Draw()
+		Save()
+	}
+}
+
+const
+Job = _ => {
+	undos.unshift( _ )
+	redos = []
+	_.Do()
+	Draw()
+	Save()
+}
+
+
+ipcRenderer.on( 'undo', Undo )
+ipcRenderer.on( 'redo', Redo )
 

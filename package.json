@@ -1,10 +1,11 @@
 {
-  "name": "electron-quick-start",
+  "name": "Batcher",
   "version": "1.0.0",
   "description": "A minimal Electron application",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+	"build": "electron-packager --package-manager yarn ."
   },
   "repository": "https://github.com/electron/electron-quick-start",
   "keywords": [
