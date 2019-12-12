@@ -111,9 +111,12 @@ relations = [
 
 const
 AddElement		= _ => {
-	elements[ Date.now().toString() ] = _
-	Draw()
-	Save()
+	const	key = Date.now().toString()
+	Job(
+		{	Do: 	() => elements[ key ] = _
+		,	Undo: 	() => delete elements[ key ]
+		}
+	)
 }
 
 const
@@ -907,7 +910,6 @@ window.addEventListener(
 )
 
 let file = new URLSearchParams( window.location.search ).get( 'file' )
-document.title = file
 try {
 	proc.chdir( path.dirname( file ) )
 	fs.readFile(
