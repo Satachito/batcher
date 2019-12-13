@@ -601,13 +601,6 @@ MouseUp = () => {
 }
 
 const
-KeyUpESC = () => {
-	mode = 'select'
-	b = null
-	Draw()
-}
-
-const
 EditText = ev => {
 	const key = HitInner( ev )
 	if ( !key ) return
@@ -906,15 +899,32 @@ window.addEventListener(
 		canvas.addEventListener( 'mousedown', MouseDown	)
 		canvas.addEventListener( 'mousemove', MouseMove	)
 		canvas.addEventListener( 'mouseup'	, MouseUp	)
-		canvas.addEventListener( 'keyup'	, KeyUpESC	)
+
 		canvas.addEventListener( 'dblclick'	, EditText	)
 
 		const
 		SetMode = _ => {
 			mode = _
 			canvas.focus( { preventScroll: true } )
+			switch ( mode ) {
+			case 'std'	:
+			case 'arg'	:
+			case 'auto'	:
+				canvas.classList.add( 'crossHair' )
+				break
+			default		:
+				canvas.classList.remove( 'crossHair' )
+				break
+			}
 		}
-
+		canvas.addEventListener(
+			'keyup'
+		,	() => {
+				SetMode( 'select' )
+				b = null
+				Draw()
+			}
+		)
 		Q( '#modeSelect'	).addEventListener( 'click', () => SetMode( 'select'	) )
 		Q( '#modeFile'		).addEventListener( 'click', () => SetMode( 'file'		) )
 		Q( '#modeSh'		).addEventListener( 'click', () => SetMode( 'sh'		) )
