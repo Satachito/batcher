@@ -920,6 +920,9 @@ window.addEventListener(
 		Q( '#modeArg'		).addEventListener( 'click', () => SetMode( 'arg'		) )
 		Q( '#modeAuto'		).addEventListener( 'click', () => SetMode( 'auto'		) )
 
+		Q( '#clearLog'		).addEventListener( 'click', () => Q( '#log' ).value = '' )
+		Q( '#clearError'	).addEventListener( 'click', () => Q( '#error' ).value = '' )
+
 		Q( '#checkFiles'	).addEventListener( 'click', CheckFiles )
 	}
 )
