@@ -117,6 +117,7 @@ AddElement		= _ => {
 		,	Undo: 	() => delete elements[ key ]
 		}
 	)
+	return key
 }
 
 const
@@ -210,6 +211,9 @@ let
 mode = 'select'
 
 let
+selection = null
+
+let
 b = null
 
 let
@@ -252,11 +256,13 @@ FileShape = ( ctx, x, y, w, h ) => {
 }
 
 const
-DrawComment = ( ctx, e ) => {
+DrawComment = ( ctx, key, e ) => {
 	ctx.fillStyle = 'white'
+	ctx.strokeStyle = key == selection ? 'red' : 'black'
 	ctx.fillRect( ...e[ 1 ] )
 	ctx.strokeRect( ...e[ 1 ] )
 	ctx.fillStyle = 'black'
+	ctx.strokeStyle = 'black'
 	ctx.font="18px monospace"
 	ctx.textAlign="center"
 	ctx.textBaseline="middle"
@@ -266,9 +272,11 @@ DrawComment = ( ctx, e ) => {
 const
 DrawProc = ( ctx, key, e ) => {
 	ctx.fillStyle = running.has( key ) ? 'red' : 'white'
+	ctx.strokeStyle = key == selection ? 'red' : 'black'
 	ctx.fillRect( ...e[ 1 ] )
 	ctx.strokeRect( ...e[ 1 ] )
 	ctx.fillStyle = 'black'
+	ctx.strokeStyle = 'black'
 	ctx.font="12px monospace"
 	ctx.textAlign="start"
 	ctx.textBaseline="alphabetic"
@@ -280,12 +288,14 @@ DrawProc = ( ctx, key, e ) => {
 }
 
 const
-DrawFile = ( ctx, e ) => {
+DrawFile = ( ctx, key, e ) => {
 	FileShape( ctx, ...e[ 1 ] )
 	ctx.fillStyle = 'white'
+	ctx.strokeStyle = key == selection ? 'red' : 'black'
 	ctx.fill()
 	ctx.stroke()
 	ctx.fillStyle = 'black'
+	ctx.strokeStyle = 'black'
 	ctx.font="18px monospace"
 	ctx.textAlign="center"
 	ctx.textBaseline="middle"
@@ -372,10 +382,10 @@ _Draw = () => {
 			}
 			break
 		case 'file'		:
-			DrawFile( ctx, e )
+			DrawFile( ctx, key, e )
 			break
 		case 'comm'		:
-			DrawComment( ctx, e )
+			DrawComment( ctx, key, e )
 			break
 		}
 	}
@@ -470,7 +480,7 @@ const
 Hit = _ => {
 	const x = _.offsetX
 	const y = _.offsetY
-	for ( let key in elements ) {
+	for ( let key of Object.keys( elements ).reverse() ) {
 		const r = elements[ key ][ 1 ]
 		let	minX = r[ 0 ]
 		let	maxX = r[ 0 ] + r[ 2 ]
@@ -522,14 +532,19 @@ MouseUp = () => {
 		if ( b ) {
 			const [ key, where ] = Hit( b )
 			if ( key ) {
-				switch ( where ) {
-				case 'CC':
-					MoveElement( key, Move( elements[ key ][ 1 ] ) )
-					break
-				default:
-					MoveElement( key, Morph( elements[ key ][ 1 ], where ) )
-					break
+				if ( b.offsetX != c.offsetX || b.offsetY != c.offsetY ) {
+					switch ( where ) {
+					case 'CC':
+						MoveElement( key, Move( elements[ key ][ 1 ] ) )
+						break
+					default:
+						MoveElement( key, Morph( elements[ key ][ 1 ], where ) )
+						break
+					}
 				}
+				selection = key
+			} else {
+				selection = null
 			}
 		}
 		break
@@ -965,8 +980,43 @@ Job = _ => {
 	Save()
 }
 
+const
+Delete = () => {
+console.log( 'Delete' )
+	if ( selection ) RemoveElement( selection )
+}
 
-ipcRenderer.on( 'undo', Undo )
-ipcRenderer.on( 'redo', Redo )
+const
+Cut = () => {
+	Copy()
+	Delete()
+}
 
-ipcRenderer.on( 'job', () => ipcRenderer.send( 'job', { undos, redos } ) )
+const
+Copy = () => {
+	if ( selection ) remote.clipboard.writeText( JSON.stringify( [ 'Batcher', elements[ selection ] ] ) )
+}
+
+const
+Paste = () => {
+	try {
+		const _ = JSON.parse( remote.clipboard.readText() )
+		const SlideRect = _ => [ _[ 0 ] + 16, _[ 1 ] + 16, _[ 2 ], _[ 3 ] ]
+		if ( Array.isArray( _ ) && _.length == 2 && _[ 0 ] == 'Batcher' ) {
+			const e = _[ 1 ]
+			selection = AddElement( [ e[ 0 ], SlideRect( e[ 1 ] ), e[ 2 ] ] )
+		}
+	} catch {
+		console.error( 'Clipboard Invalid' )
+	}
+}
+
+ipcRenderer.on( 'status', () => ipcRenderer.send( 'status', { undos, redos, selection } ) )
+
+ipcRenderer.on( 'undo'	, Undo		)
+ipcRenderer.on( 'redo'	, Redo		)
+ipcRenderer.on( 'cut'	, Cut		)
+ipcRenderer.on( 'delete', Delete	)
+ipcRenderer.on( 'copy'	, Copy		)
+ipcRenderer.on( 'paste'	, Paste		)
+
