@@ -526,7 +526,12 @@ MouseMove = () => {
 
 const
 MouseUp = () => {
+
 	if ( event.button ) return
+
+	const
+	changeToSelect = ! event.shiftKey
+
 	switch ( mode ) {
 	case 'select'	:
 		if ( b ) {
@@ -562,6 +567,7 @@ MouseUp = () => {
 			return
 		}
 		AddRelation( [ wB, wC, mode ] )
+		if ( changeToSelect ) mode = 'select'
 		break
 	case 'file'		:
 	case 'sh'		:
@@ -579,7 +585,8 @@ MouseUp = () => {
 				,	B(	'OK'
 					,	() => {
 							CloseModalDialog()
-							AddElement( [ mode, rect, ta.value ] )
+							selection = AddElement( [ mode, rect, ta.value ] )
+							if ( changeToSelect ) mode = 'select'
 						}
 					)
 				,	B( 'Cancel', CloseModalDialog )
@@ -588,7 +595,6 @@ MouseUp = () => {
 		)
 		break
 	}
-
 //
 	b = null
 	Draw()
@@ -985,7 +991,6 @@ Job = _ => {
 
 const
 Delete = () => {
-console.log( 'Delete' )
 	if ( selection ) RemoveElement( selection )
 }
 
