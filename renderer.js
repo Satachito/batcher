@@ -110,22 +110,30 @@ relations = [
 ]
 
 const
-AddElement		= _ => {
-	const	key = Date.now().toString()
+AddElements		= _ => {
+	let	wSavedSelection = selection.map( _ => _ )
+	let	max = Math.max( ...Object.keys( elements ) )
+	let	keys = _.map( _ => ( ++max ).toString() )
 	Job(
-		{	Do: 	() => elements[ key ] = _
-		,	Undo: 	() => delete elements[ key ]
+		{	Do: 	() => {
+				for ( let i in keys ) elements[ keys[ i ] ] = _[ i ]
+				selection = keys
+			}
+		,	Undo: 	() => {
+				for ( let key of keys ) delete elements[ key ]
+				selection = wSavedSelection
+			}
 		}
 	)
-	return key
+	return keys
 }
 
 const
-MoveElement		= ( key, rect ) => {
-	const wSaved = elements[ key ][ 1 ]
+MoveElements	= _ => {	//	[ [ key, rect ] ]
+	const wSaved = _.map( _ => elements[ _[ 0 ] ][ 1 ] )
 	Job(
-		{	Do: 	() => elements[ key ][ 1 ] = rect
-		,	Undo: 	() => elements[ key ][ 1 ] = wSaved
+		{	Do: 	() => { for ( let kr of _ ) elements[ kr[ 0 ] ][ 1 ] = kr[ 1 ] }
+		,	Undo: 	() => { for ( let i in _ ) elements[ _[ i ][ 0 ] ][ 1 ] = wSaved[ i ] }
 		}
 	)
 }
@@ -150,17 +158,22 @@ ChangeText_Direct	= ( key, text ) => {
 
 
 const
-RemoveElement	= _ => {
-	const wSaved = elements[ _ ]
+RemoveElements	= _ => {
+	const wSavedSelection = selection
+	const wSaved = _.map( _ => elements[ _ ] )
 	const wSavedRelations = []
-	for ( let i in relations ) if ( relations[ i ][ 0 ] == _ || relations[ i ][ 1 ] == _ ) wSavedRelations.push( [ i, relations[ i ] ] )
+	for ( let i in relations ) {
+		if ( _.includes( relations[ i ][ 0 ] ) || _.includes( relations[ i ][ 1 ] ) ) wSavedRelations.push( [ i, relations[ i ] ] )
+	}
 	Job(
 		{	Do: 	() => {
-				delete elements[ _ ]
+				_.forEach( _ => delete elements[ _ ] )
+				selection = selection.filter( key => !_.includes( key ) )
 				wSavedRelations.map( _ => _[ 0 ] ).reverse().forEach( _ => relations.splice( _, 1 ) )
 			}
 		,	Undo: 	() => {
-				elements[ _ ] = wSaved
+				for ( let i = 0; i < _.length; i++ ) elements[ _[ i ] ] = wSaved[ i ]
+				selection = wSavedSelection
 				wSavedRelations.forEach( _ => relations.splice( _[ 0 ], 0, _[ 1 ] ) )
 			}
 		}
@@ -211,7 +224,7 @@ let
 mode = 'select'
 
 let
-selection = null
+selection = []
 
 let
 b = null
@@ -229,6 +242,12 @@ Mid = _ => [ _[ 1 ][ 0 ] + _[ 1 ][ 2 ] / 2, _[ 1 ][ 1 ] + _[ 1 ][ 3 ] / 2 ]
  
 const
 Label = _ => _[ 2 ].split( '\n' )[ 0 ]
+
+const
+MMRect = ( x, y, w, h ) => [ x, y, x + w, y + h ]
+
+const
+WHRect = ( minX, minY, maxX, maxY ) => [ minX, minY, maxX - minX, maxY - minY ]
 
 const
 Extent = () => Object.values( elements ).map( e => e[ 1 ] ).reduce(
@@ -258,28 +277,26 @@ FileShape = ( ctx, x, y, w, h ) => {
 const
 DrawComment = ( ctx, key, e ) => {
 	ctx.fillStyle = 'white'
-	ctx.strokeStyle = key == selection ? 'red' : 'black'
 	ctx.fillRect( ...e[ 1 ] )
+	ctx.strokeStyle = selection.includes( key ) ? 'red' : 'black'
 	ctx.strokeRect( ...e[ 1 ] )
-	ctx.fillStyle = 'black'
-	ctx.strokeStyle = 'black'
 	ctx.font="18px monospace"
 	ctx.textAlign="center"
 	ctx.textBaseline="middle"
+	ctx.fillStyle = 'black'
 	ctx.fillText( e[ 2 ], ...Mid( e ), e[ 1 ][ 2 ] )
 }
 
 const
 DrawProc = ( ctx, key, e ) => {
 	ctx.fillStyle = running.has( key ) ? 'red' : 'white'
-	ctx.strokeStyle = key == selection ? 'red' : 'black'
 	ctx.fillRect( ...e[ 1 ] )
+	ctx.strokeStyle = selection.includes( key ) ? 'red' : 'black'
 	ctx.strokeRect( ...e[ 1 ] )
-	ctx.fillStyle = 'black'
-	ctx.strokeStyle = 'black'
 	ctx.font="12px monospace"
 	ctx.textAlign="start"
 	ctx.textBaseline="alphabetic"
+	ctx.fillStyle = 'black'
 	ctx.fillText( key + ' ' + e[ 0 ], e[ 1 ][ 0 ] + 2, e[ 1 ][ 1 ] + 12 )
 	ctx.font="18px monospace"
 	ctx.textAlign="center"
@@ -291,22 +308,22 @@ const
 DrawFile = ( ctx, key, e ) => {
 	FileShape( ctx, ...e[ 1 ] )
 	ctx.fillStyle = 'white'
-	ctx.strokeStyle = key == selection ? 'red' : 'black'
 	ctx.fill()
+	ctx.strokeStyle = selection.includes( key ) ? 'red' : 'black'
 	ctx.stroke()
-	ctx.fillStyle = 'black'
-	ctx.strokeStyle = 'black'
 	ctx.font="18px monospace"
 	ctx.textAlign="center"
 	ctx.textBaseline="middle"
 	const w = e[ 2 ].split( '\n' )
 	switch ( w.length ) {
 	case 1:
+		ctx.fillStyle = 'black'
 		ctx.fillText( w[ 0 ], ...Mid( e ), e[ 1 ][ 2 ] )
 		break;
 	default:
 		const wMid = Mid( e )
 		wMid[ 1 ] -= e[ 1 ][ 3 ] / 6
+		ctx.fillStyle = 'black'
 		ctx.fillText( w[ 0 ], ...wMid, e[ 1 ][ 2 ] )
 		wMid[ 1 ] += e[ 1 ][ 3 ] / 3
 		ctx.fillText( w[ 1 ], ...wMid, e[ 1 ][ 2 ] )
@@ -328,10 +345,11 @@ _Draw = () => {
 		ctx.moveTo( ...m )
 		ctx.lineTo( ...l )
 		switch ( w ) {
-		case 'std'	: ctx.setLineDash( [] )		; break
+		case 'std'	: ctx.setLineDash( [] )			; break
 		case 'arg'	: ctx.setLineDash( [ 2 ] )		; break
 		case 'auto'	: ctx.setLineDash( [ 10, 5 ] )	; break
 		}
+		ctx.strokeStyle = 'black'
 		ctx.stroke()
 		ctx.setLineDash( [] )
 
@@ -346,9 +364,11 @@ _Draw = () => {
 		ctx.lineTo( midX + newX, midY + newY )
 		ctx.lineTo( midX + Math.cos( slope1 ) * 16, midY + Math.sin( slope1 ) * 16 )
 		ctx.closePath()
+		ctx.fillStyle = 'black'
 		ctx.fill()
 		ctx.beginPath()
 		ctx.arc( midX, midY, 16, 0, Math.PI * 2, false )
+		ctx.strokeStyle = 'black'
 		ctx.stroke()
 	}
 
@@ -374,6 +394,7 @@ _Draw = () => {
 				const w1 = Mid( elements[ r[ 0 ] ] )
 				const w2 = Mid( elements[ r[ 1 ] ] )
 				const slope1 = Math.atan2( w2[ 1 ] - w1[ 1 ], w2[ 0 ] - w1[ 0 ] )
+				ctx.fillStyle = 'black'
 				ctx.fillText(
 					"" + ( i + 1 )
 				,	( w1[ 0 ] + w2[ 0 ] ) / 2 - Math.cos( slope1 ) * 8
@@ -389,31 +410,28 @@ _Draw = () => {
 			break
 		}
 	}
+
+	const selectionRect = SelectionRectWH()
+	if ( selectionRect ) {
+		ctx.strokeStyle = 'red'
+		ctx.strokeRect( ...selectionRect )
+	}
+
 	if ( ! c ) return	//	c must be set
 	if ( b ) {	//	Dragging
-		const drawDragRect = r => {
-			switch ( s[ 0 ] ) {
-			case 'file'	:
-				FileShape( ctx, ...r )
-				ctx.stroke()
-				break
-			default:
-				ctx.strokeRect( ...r )
-				break
-			}
-		}
-		let	[ key, where ] = Hit( b )
-		if ( ! key ) return
-		ctx.strokeStyle = 'red'
-		const s = elements[ key ]
+		if ( !selectionRect ) return
+		let	where = Hit( b, selectionRect )
+		if ( !where ) return
 		switch ( mode ) {
 		case 'select':
 			switch ( where ) {
 			case 'CC':
-				drawDragRect( Move( s[ 1 ] ) )
+				ctx.strokeStyle = 'red'
+				ctx.strokeRect( ...Move( selectionRect ) )
 				break
 			default:
-				drawDragRect( Morph( s[ 1 ], where ) )
+				ctx.strokeStyle = 'red'
+				ctx.strokeRect( ...Morph( selectionRect, where ) )
 				break
 			}
 			break
@@ -440,7 +458,6 @@ _Draw = () => {
 			ctx.stroke()
 		}
 	}
-	ctx.strokeStyle = 'black'
 }
 const
 Move = r => {
@@ -448,10 +465,7 @@ Move = r => {
 }
 const
 Morph = ( r, where ) => {
-	let	minX = r[ 0 ]
-	let	maxX = r[ 0 ] + r[ 2 ]
-	let	minY = r[ 1 ]
-	let	maxY = r[ 1 ] + r[ 3 ]
+	let	[ minX, minY, maxX, maxY ] = MMRect( ...r )
 	switch ( where[ 0 ] ) {
 	case 'L':	minX += c.offsetX - b.offsetX;	break
 	case 'R':	maxX += c.offsetX - b.offsetX;	break
@@ -462,10 +476,10 @@ Morph = ( r, where ) => {
 	}
 	if ( minX > maxX ) [ minX, maxX ] = [ maxX, minX ]
 	if ( minY > maxY ) [ minY, maxY ] = [ maxY, minY ]
-	return [ minX, minY, maxX - minX, maxY - minY ]
+	return WHRect( minX, minY, maxX, maxY )
 }
 const
-HitLine = _ => {
+LineHit = _ => {
 	for ( let index in relations ) {
 		const e = relations[ index ]
 		const l = Mid( elements[ e[ 0 ] ] )
@@ -477,97 +491,153 @@ HitLine = _ => {
 	return null
 }
 const
-Hit = _ => {
+ElementHit = _ => {
 	const x = _.offsetX
 	const y = _.offsetY
+	let v = null
 	for ( let key of Object.keys( elements ).reverse() ) {
 		const r = elements[ key ][ 1 ]
-		let	minX = r[ 0 ]
-		let	maxX = r[ 0 ] + r[ 2 ]
-		let	minY = r[ 1 ]
-		let	maxY = r[ 1 ] + r[ 3 ]
-		let w = (
-			minX - 8 < x && x < maxX + 8
-			?	x < minX
-				?	'L'
-				:	maxX < x ? 'R' : 'C'
-			:	''
-		) + (
-			minY - 8 < y && y < maxY + 8
-			?	y < minY
-				?	'T'
-				:	maxY < y ? 'B' : 'C'
-			:	''
-		)
-		if ( w.length == 2 ) return [ key, w ]
+		if ( x < r[ 0 ] || r[ 0 ] + r[ 2 ] < x ) continue
+		if ( y < r[ 1 ] || r[ 1 ] + r[ 3 ] < y ) continue
+		v = key
+		break
 	}
-	return [ null, null ]
+	return v
 }
+
 const
-HitInner = _ => {
-	const [ key, w ] = Hit( _ )
-	return key && w == 'CC' ? key : null
+SelectionRectMM = () => {
+	if ( !selection.length ) return null
+	let [ minX, minY, maxX, maxY ] = MMRect( ...elements[ selection[ 0 ] ][ 1 ] )
+	for ( let i = 1; i < selection.length; i++ ) {
+		const [ x, y, w, h ] = elements[ selection[ i ] ][ 1 ]
+		if ( maxX < x + w ) maxX = x + w
+		if ( maxY < y + h ) maxY = y + h
+		if ( x < minX ) minX = x
+		if ( y < minY ) minY = y
+	}
+	return [ minX, minY, maxX, maxY ]
+}
+
+const
+SelectionRectWH = () => {
+	const v = SelectionRectMM()
+	return v ? WHRect( ...v ) : null
+}
+
+const
+Hit = ( _, rectWH ) => {
+	const [ minX, minY, maxX, maxY ] = MMRect( ...rectWH )
+	const x = _.offsetX
+	const y = _.offsetY
+	const v = (
+		minX - 8 < x && x < maxX + 8
+		?	x < minX
+			?	'L'
+			:	maxX < x ? 'R' : 'C'
+		:	''
+	) + (
+		minY - 8 < y && y < maxY + 8
+		?	y < minY
+			?	'T'
+			:	maxY < y ? 'B' : 'C'
+		:	''
+	)
+	return v.length == 2 ? v : null
+}
+
+const
+SetMode = _ => {
+	const canvas = Q( 'canvas' )
+	mode = _
+	canvas.focus( { preventScroll: true } )
+	switch ( mode ) {
+	case 'std'	:
+	case 'arg'	:
+	case 'auto'	:
+		canvas.classList.add( 'crossHair' )
+		break
+	default		:
+		canvas.classList.remove( 'crossHair' )
+		break
+	}
 }
 
 //	Event Handlers
 
 const
-MouseDown = () => {
-	if ( event.button ) return
-	b = event
-	Draw()
-}
+MouseDown = ev => {
 
-const
-MouseMove = () => {
-	c = event
-	Draw()
-}
+	if ( ev.button ) return
 
-const
-MouseUp = () => {
-
-	if ( event.button ) return
-
-	const
-	changeToSelect = ! event.shiftKey
+	b = ev
 
 	switch ( mode ) {
 	case 'select'	:
-		if ( b ) {
-			const [ key, where ] = Hit( b )
-			if ( key ) {
-				if ( b.offsetX != c.offsetX || b.offsetY != c.offsetY ) {
+		const key = ElementHit( b )
+		if ( key ) {
+			if ( ev.shiftKey ) {
+				if ( selection.includes( key ) )	selection = selection.filter( _ => _ != key )
+				else								selection.push( key )
+			} else {
+				if ( !selection.includes( key ) )	selection = [ key ]
+			}
+		} else {
+			const r = SelectionRectWH()
+			if ( r && !Hit( b, r ) ) selection = []
+		}
+		Draw()
+		break
+	}
+}
+
+const
+MouseMove = ev => {
+	c = ev
+	Draw()
+}
+
+const
+MouseUp = ev => {
+
+	if ( ev.button ) return
+
+	if ( !b ) return
+
+	switch ( mode ) {
+	case 'select'	:
+		if ( b.offsetX != c.offsetX || b.offsetY != c.offsetY ) {
+			const rect = SelectionRectWH()
+			if ( rect ) {
+				const where = Hit( b, rect )
+				if ( where ) {
 					switch ( where ) {
 					case 'CC':
-						MoveElement( key, Move( elements[ key ][ 1 ] ) )
+						MoveElements( selection.map( key => [ key, Move( elements[ key ][ 1 ] ) ] ) )
 						break
 					default:
-						MoveElement( key, Morph( elements[ key ][ 1 ], where ) )
+						MoveElements( selection.map( key => [ key, Morph( elements[ key ][ 1 ], where ) ] ) )
 						break
 					}
 				}
-				selection = key
-			} else {
-				selection = null
 			}
 		}
 		break
 	case 'std'		:
 	case 'arg'		:
 	case 'auto'		:
-		const wB = HitInner( b ); if ( ! wB ) return
-		const wC = HitInner( c ); if ( ! wC ) return
+		const wB = ElementHit( b ); if ( ! wB ) return
+		const wC = ElementHit( c ); if ( ! wC ) return
 		if ( wB == wC ) return
 		if (
 			( elements[ wB ][ 0 ] == 'file' && elements[ wC ][ 0 ] == 'file' )
 		||	( elements[ wB ][ 0 ] != 'file' && elements[ wC ][ 0 ] != 'file' )
 		) {
 			alert( 'Connection must be in between file and procedure' )
-			return
+		} else {
+			AddRelation( [ wB, wC, mode ] )
 		}
-		AddRelation( [ wB, wC, mode ] )
-		if ( changeToSelect ) mode = 'select'
+		if ( ! ev.shiftKey ) SetMode( 'select' )
 		break
 	case 'file'		:
 	case 'sh'		:
@@ -575,8 +645,9 @@ MouseUp = () => {
 	case 'python2'	:
 	case 'python3'	:
 	case 'node'		:
-		const rect = [ event.offsetX - 80, event.offsetY - 30, 160, 60 ]
+		const rect = [ ev.offsetX - 80, ev.offsetY - 30, 160, 60 ]
 		const ta = E( 'textarea', { cols: '128', rows: '20' } )
+		const wMode = mode
 		ShowModalDialog(
 			E(	'dialog'
 			,	{ center: true }
@@ -585,14 +656,14 @@ MouseUp = () => {
 				,	B(	'OK'
 					,	() => {
 							CloseModalDialog()
-							selection = AddElement( [ mode, rect, ta.value ] )
-							if ( changeToSelect ) mode = 'select'
+							AddElements( [ [ wMode, rect, ta.value ] ] )
 						}
 					)
 				,	B( 'Cancel', CloseModalDialog )
 				]
 			)
 		)
+		if ( !ev.shiftKey ) SetMode( 'select' )
 		break
 	}
 //
@@ -601,8 +672,11 @@ MouseUp = () => {
 }
 
 const
-EditText = ev => {
-	const key = HitInner( ev )
+DoubleClick = ev => {
+
+	if ( ev.metaKey ) return
+
+	const key = ElementHit( ev )
 	if ( !key ) return
 	const ta = E( 'textarea', { cols: '128', rows: '20' } )
 	ta.value = elements[ key ][ 2 ]
@@ -849,13 +923,13 @@ window.addEventListener(
 		canvas.addEventListener(
 			'contextmenu'
 		,	ev => {
-				const key = HitInner( ev )
+				const key = ElementHit( ev )
 				if ( key ) {
 					const cm = new remote.Menu()
 					cm.append(
 						new remote.MenuItem(
 							{	label: 'Delete'
-							,	click: ev => RemoveElement( key )
+							,	click: () => RemoveElements( [ key ] )
 							}
 						)
 					)
@@ -870,7 +944,7 @@ window.addEventListener(
 						cm.append(
 							new remote.MenuItem(
 								{	label: 'Unlink'
-								,	click: ev => fs.unlink(
+								,	click: () => fs.unlink(
 										Label( elements[ key ] )
 									,	er => er
 										?	Warning( er.toString() )
@@ -881,8 +955,9 @@ window.addEventListener(
 						)
 					}
 					cm.popup()
+					return
 				}
-				const index = HitLine( ev )
+				const index = LineHit( ev )
 				if ( index ) {
 					const cm = new remote.Menu()
 					cm.append(
@@ -893,30 +968,16 @@ window.addEventListener(
 						)
 					)
 					cm.popup()
+					return
 				}
 			}
 		)
-		canvas.addEventListener( 'mousedown', MouseDown	)
-		canvas.addEventListener( 'mousemove', MouseMove	)
-		canvas.addEventListener( 'mouseup'	, MouseUp	)
+		canvas.addEventListener( 'mousedown', MouseDown		)
+		canvas.addEventListener( 'mousemove', MouseMove		)
+		canvas.addEventListener( 'mouseup'	, MouseUp		)
 
-		canvas.addEventListener( 'dblclick'	, EditText	)
+		canvas.addEventListener( 'dblclick'	, DoubleClick	)
 
-		const
-		SetMode = _ => {
-			mode = _
-			canvas.focus( { preventScroll: true } )
-			switch ( mode ) {
-			case 'std'	:
-			case 'arg'	:
-			case 'auto'	:
-				canvas.classList.add( 'crossHair' )
-				break
-			default		:
-				canvas.classList.remove( 'crossHair' )
-				break
-			}
-		}
 		canvas.addEventListener(
 			'keyup'
 		,	() => {
@@ -944,6 +1005,7 @@ window.addEventListener(
 )
 
 let file = new URLSearchParams( window.location.search ).get( 'file' )
+document.title = file
 try {
 	proc.chdir( path.dirname( file ) )
 	fs.readFile(
@@ -970,24 +1032,22 @@ redos = []
 
 const
 Undo = () => {
-	if ( undos.length ) {
-		redos.unshift( undos[ 0 ] )
-		undos[ 0 ].Undo()
-		undos.splice( 0, 1 )
-		Draw()
-		Save()
-	}
+	if ( !undos.length ) return
+	redos.unshift( undos[ 0 ] )
+	undos[ 0 ].Undo()
+	undos.splice( 0, 1 )
+	Draw()
+	Save()
 }
 
 const
 Redo = () => {
-	if ( redos.length ) {
-		undos.unshift( redos[ 0 ] )
-		redos[ 0 ].Do()
-		redos.splice( 0, 1 )
-		Draw()
-		Save()
-	}
+	if ( !redos.length ) return
+	undos.unshift( redos[ 0 ] )
+	redos[ 0 ].Do()
+	redos.splice( 0, 1 )
+	Draw()
+	Save()
 }
 
 const
@@ -1001,7 +1061,8 @@ Job = _ => {
 
 const
 Delete = () => {
-	if ( selection ) RemoveElement( selection )
+	if ( !selection.length ) return
+	RemoveElements( selection )
 }
 
 const
@@ -1012,18 +1073,23 @@ Cut = () => {
 
 const
 Copy = () => {
-	if ( selection ) remote.clipboard.writeText( JSON.stringify( [ 'Batcher', elements[ selection ] ] ) )
+	if ( !selection.length ) return
+	remote.clipboard.writeText(
+		JSON.stringify(
+			[	'Batcher'
+			,	selection.map( _ => elements[ _ ] )
+			]
+		)
+	)
 }
 
 const
 Paste = () => {
 	try {
 		const _ = JSON.parse( remote.clipboard.readText() )
+		if ( !Array.isArray( _ ) || _.length != 2 || _[ 0 ] != 'Batcher' ) return
 		const SlideRect = _ => [ _[ 0 ] + 16, _[ 1 ] + 16, _[ 2 ], _[ 3 ] ]
-		if ( Array.isArray( _ ) && _.length == 2 && _[ 0 ] == 'Batcher' ) {
-			const e = _[ 1 ]
-			selection = AddElement( [ e[ 0 ], SlideRect( e[ 1 ] ), e[ 2 ] ] )
-		}
+		AddElements( _[ 1 ].map( _ =>  [ _[ 0 ], SlideRect( _[ 1 ] ), _[ 2 ] ] ) )
 	} catch {
 		console.error( 'Clipboard Invalid' )
 	}
