@@ -112,7 +112,8 @@ relations = [
 const
 AddElements		= _ => {
 	let	wSavedSelection = selection.map( _ => _ )
-	let	max = Math.max( ...Object.keys( elements ) )
+	let	max = Object.keys( elements ).length == 0 ? 0 : Math.max( ...Object.keys( elements ) )
+console.log( 'max: ', max )
 	let	keys = _.map( _ => ( ++max ).toString() )
 	Job(
 		{	Do: 	() => {
@@ -874,9 +875,7 @@ _Run = keys => {
 						} else {
 							spawned.stdout.on(
 								'data'
-							,	_ => {
-									LogConsole( _.toString() )
-								}
+							,	_ => LogConsole( _.toString() )
 							)
 						}
 						spawned.stderr.on(

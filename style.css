@@ -1,15 +1,29 @@
-#toolbar {
-	position	: relative
+body {
+	margin		: 0
 }
-.crossHair {
-	cursor		: crosshair
+#topbar {
+	position	: fixed
+;	top			: 0px
+;	background	: blue
+;	width		: 100%
+;	height		: 60px
+}
+#topmargin {
+;	width		: 100%
+;	height		: 60px
+}
+
+#main {
+	margin		: 16px
 }
 #editor {
 	overflow	: scroll
 }
 canvas {
-	margin		: 5px 5px 5px 5px
-;	background: aliceblue
+	background	: aliceblue
+}
+.crossHair {
+	cursor		: crosshair
 }
 #log {
 	width		: 100%

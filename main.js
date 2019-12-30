@@ -101,6 +101,11 @@ template = [
 			,	click		: () => BrowserWindow.getFocusedWindow().send( 'redo' )
 			}
 		,	{ type: 'separator' }
+		,	{ role: 'cut' }
+		,	{ role: 'copy' }
+		,	{ role: 'paste' }
+		,	{ role: 'delete' }
+			/*
 		,	{	label		: 'Cut'
 			,	accelerator	: 'CmdOrCtrl+X'
 			,	click		: () => BrowserWindow.getFocusedWindow().send( 'cut' )
@@ -117,6 +122,7 @@ template = [
 			,	accelerator	: 'Backspace'
 			,	click		: () => BrowserWindow.getFocusedWindow().send( 'delete' )
 			}
+			*/
 		]
 	}
 ,	{	role	: 'viewMenu'

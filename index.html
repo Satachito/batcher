@@ -11,7 +11,17 @@
 		<link rel="stylesheet" href="style.css">
 	</head>
 	<body>
-		<div>
+		<div id=main>
+			<div id=editor>
+				<div id=topmargin></div>
+				<canvas tabindex=0 width="2048" height="1024"></canvas>
+			</div>
+			<p>Log console: <button id=clearLog>Clear</button></p>
+			<textarea id=log rows=25></textarea>
+			<p>Error console: <button id=clearError>Clear</button></p>
+			<textarea id=error rows=25></textarea>
+		</div>
+		<div id=topbar>
 			<button id=modeSelect	>select		</button>
 			<button id=modeFile		>file		</button>
 			<button id=modeSh		>sh			</button>
@@ -24,13 +34,6 @@
 			<button id=modeAuto		>auto		</button>
 			<button id=checkFiles	>checkFiles	</button>
 		</div>
-		<div id=editor>
-			<canvas tabindex=0 width="2048" height="1024"></canvas>
-		</div>
-		<p>Log console: <button id=clearLog>Clear</button></p>
-		<textarea id=log rows=25></textarea>
-		<p>Error console: <button id=clearError>Clear</button></p>
-		<textarea id=error rows=25></textarea>
 		<script src="./renderer.js"></script>
 	</body>
 </html>
