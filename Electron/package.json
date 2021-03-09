@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-	"build": "electron-packager --package-manager yarn ."
+    "build": "electron-packager --package-manager yarn ."
   },
   "repository": "https://github.com/electron/electron-quick-start",
   "keywords": [
